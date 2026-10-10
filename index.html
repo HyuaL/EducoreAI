@@ -11,6 +11,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- PptxGenJS (Xuất File PowerPoint .pptx) -->
     <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+    <!-- Thư viện docx (Xuất File Word .docx) -->
+    <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
     <!-- File CSS riêng -->
     <link rel="stylesheet" href="style.css">
 </head>
@@ -29,12 +31,17 @@
                 </div>
             </div>
 
-            <!-- Khung Nhập API Key Trực Tiếp -->
+            <!-- Khung Nhập API Key Trực Tiếp (Có đèn báo trạng thái) -->
             <div class="flex items-center space-x-2 bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-xl">
                 <i class="fa-solid fa-key text-emerald-400 text-xs"></i>
-                <input type="password" id="api-key-input" class="bg-transparent text-xs text-white placeholder-slate-400 outline-none w-48 sm:w-60" placeholder="Dán Gemini API Key...">
-                <button id="btn-save-key" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded-lg text-xs font-semibold transition">
-                    Lưu Key
+                <input type="password" id="api-key-input" class="bg-transparent text-xs text-white placeholder-slate-400 outline-none w-44 sm:w-56" placeholder="Dán Gemini API Key...">
+                <!-- Đèn báo trạng thái: Đỏ (Chưa có), Xanh (Đã sẵn sàng) -->
+                <span id="key-status-indicator" class="flex h-2.5 w-2.5 relative" title="Trạng thái API Key">
+                    <span id="key-ping" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span id="key-dot" class="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                </span>
+                <button id="btn-save-key" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded-lg text-xs font-semibold transition cursor-pointer">
+                    Lưu
                 </button>
             </div>
         </div>
@@ -103,7 +110,13 @@
                     <h3 class="font-extrabold text-slate-900 text-sm tracking-wide uppercase flex items-center">
                         <i class="fa-solid fa-file-invoice text-emerald-600 mr-2"></i> KẾ HOẠCH BÀI DẠY
                     </h3>
-                    <span id="khbd-status" class="text-[10px] font-bold bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full uppercase">Sẵn sàng</span>
+                    <div class="flex items-center gap-2">
+                        <!-- Nút Tải File .DOCX -->
+                        <button id="btn-export-docx" class="hidden bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-xl transition shadow flex items-center cursor-pointer">
+                            <i class="fa-solid fa-file-word mr-1.5"></i> Tải .DOCX
+                        </button>
+                        <span id="khbd-status" class="text-[10px] font-bold bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full uppercase">Sẵn sàng</span>
+                    </div>
                 </div>
 
                 <div id="khbd-output" class="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-4 text-xs text-slate-700">

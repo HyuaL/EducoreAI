@@ -1,35 +1,58 @@
 /**
- * EDUCORE AI - DIRECT & SIMPLE JS ENGINE
+ * EDUCORE AI - ULTIMATE STABLE ENGINE (AUTO API + DYNAMIC SUBJECT GENERATOR)
  */
 
 let currentLessonData = null;
 
-// Lấy/Lưu API Key
 function getStoredKey() {
     try { return localStorage.getItem('EDUCOR_GEMINI_KEY') || ''; } catch (e) { return ''; }
 }
+
 function setStoredKey(key) {
-    try { localStorage.setItem('EDUCOR_GEMINI_KEY', key); } catch (e) {}
+    try { localStorage.setItem('EDUCOR_GEMINI_KEY', key.trim()); } catch (e) {}
 }
 
-let apiKey = getStoredKey();
+function updateKeyIndicator(hasKey) {
+    const dot = document.getElementById('key-dot');
+    const ping = document.getElementById('key-ping');
+    if (!dot || !ping) return;
 
-// Gắn sự kiện sau khi DOM load xong
+    if (hasKey && hasKey.length > 5) {
+        dot.className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500";
+        ping.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75";
+    } else {
+        dot.className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500";
+        ping.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75";
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     const keyInput = document.getElementById('api-key-input');
     const btnSaveKey = document.getElementById('btn-save-key');
     const btnGenerate = document.getElementById('btn-generate');
     const btnExport = document.getElementById('btn-export-pptx');
+    const btnExportDocx = document.getElementById('btn-export-docx');
 
-    if (keyInput && apiKey) {
-        keyInput.value = apiKey;
+    const savedKey = getStoredKey();
+    if (keyInput && savedKey) {
+        keyInput.value = savedKey;
+        updateKeyIndicator(savedKey);
+    }
+
+    if (keyInput) {
+        keyInput.addEventListener('input', function() {
+            const val = keyInput.value.trim();
+            setStoredKey(val);
+            updateKeyIndicator(val);
+        });
     }
 
     if (btnSaveKey) {
         btnSaveKey.addEventListener('click', function() {
-            apiKey = keyInput.value.trim();
-            setStoredKey(apiKey);
-            alert(apiKey ? 'Đã lưu API Key thành công!' : 'Đã xóa API Key!');
+            const val = keyInput ? keyInput.value.trim() : '';
+            setStoredKey(val);
+            updateKeyIndicator(val);
+            alert(val ? 'Đã lưu API Key thành công!' : 'Đã xóa API Key!');
         });
     }
 
@@ -40,10 +63,24 @@ document.addEventListener('DOMContentLoaded', function() {
     if (btnExport) {
         btnExport.addEventListener('click', handleExportPPTX);
     }
+
+    if (btnExportDocx) {
+        btnExportDocx.addEventListener('click', handleExportDOCX);
+    }
 });
 
-// Hàm xử lý chính khi bấm nút Tạo Bài Học
 async function handleGenerate() {
+    const keyInputEl = document.getElementById('api-key-input');
+    let activeKey = keyInputEl ? keyInputEl.value.trim() : '';
+    if (!activeKey) {
+        activeKey = getStoredKey();
+    }
+    
+    if (activeKey) {
+        setStoredKey(activeKey);
+        updateKeyIndicator(activeKey);
+    }
+
     const title = document.getElementById('lesson-title').value.trim();
     const subject = document.getElementById('subject').value;
     const grade = document.getElementById('grade').value;
@@ -57,84 +94,98 @@ async function handleGenerate() {
     const statusEl = document.getElementById('khbd-status');
     const outputEl = document.getElementById('khbd-output');
 
-    statusEl.innerText = 'Đang khởi tạo...';
+    statusEl.innerText = 'Đang xử lý nội dung...';
     outputEl.innerHTML = `
         <div class="flex flex-col items-center justify-center py-20 text-emerald-700 space-y-3">
             <i class="fa-solid fa-spinner fa-spin text-3xl"></i>
-            <p class="font-bold text-sm">Hệ thống đang xây dựng bài học "${title}"...</p>
+            <p class="font-bold text-sm">Hệ thống đang xây dựng bài học chuyên sâu môn ${subject}: "${title}"...</p>
         </div>
     `;
 
     let lessonData = null;
 
-    // NẾU CÓ API KEY -> GỌI GOOGLE GEMINI API
-    if (apiKey) {
-        const systemPrompt = `
-Bạn là Chuyên gia Giáo dục. Hãy lập KẾ HOẠCH BÀI DẠY và PHẦN TRÌNH BÀY Slide cho:
-- Môn: ${subject} | Khối: ${grade} | Bài: "${title}" ${notes ? `| Ghi chú: "${notes}"` : ''}
+    // 1. Thử gọi API Gemini chính hãng nếu có Key
+    if (activeKey) {
+        const systemPrompt = `Bạn là Chuyên gia Giáo dục. Hãy lập KẾ HOẠCH BÀI DẠY và SLIDE TRÌNH BÀY chi tiết theo đặc thù môn ${subject}, khối ${grade}, chủ đề "${title}". ${notes ? `Ghi chú: "${notes}"` : ''}
 
-YÊU CẦU CẤU TRÚC:
-- Cấu trúc bài dạy linh hoạt theo đặc thù môn ${subject}.
-- Nội dung chính xác, bài tập có số liệu thực tế và lời giải từng bước.
-
-Trả về DUY NHẤT một đối tượng JSON chuẩn không bọc markdown:
+Trả về DUY NHẤT đối tượng JSON chuẩn xác, không bọc markdown:
 {
   "title": "${title}",
   "subject": "${subject}",
   "grade": "${grade}",
-  "creativeApproach": "Ý tưởng tiếp cận sư phạm bài này",
+  "creativeApproach": "Ý tưởng tiếp cận sư phạm sáng tạo cho ${subject}",
   "khbd": [
     {
-      "sectionTitle": "Tên phần (VD: I. Khởi động / I. Đặt vấn đề...)",
-      "badge": "Mở đầu",
-      "items": [
-        { "title": "Hoạt động 1", "teacherRole": "GV...", "studentRole": "HS...", "keyContent": "Trọng tâm..." }
-      ]
+      "sectionTitle": "I. HOẠT ĐỘNG KHỞI ĐỘNG",
+      "badge": "Khởi động",
+      "items": [{ "title": "Tình huống thực tế", "teacherRole": "GV đưa ra vấn đề thực tế...", "studentRole": "HS thảo luận nhóm...", "keyContent": "Định hướng bài học." }]
+    },
+    {
+      "sectionTitle": "II. HÌNH THÀNH KIẾN THỨC MỚI",
+      "badge": "Khám phá",
+      "items": [{ "title": "Nội dung cốt lõi môn ${subject}", "teacherRole": "GV phân tích bản chất định luật/khái niệm...", "studentRole": "HS ghi chép trọng tâm...", "keyContent": "Công thức / Bản chất chuyên sâu." }]
+    },
+    {
+      "sectionTitle": "III. LUYỆN TẬP & VẬN DỤNG",
+      "badge": "Luyện tập",
+      "items": [{ "title": "Bài tập vận dụng", "teacherRole": "GV hướng dẫn giải bài tập mẫu...", "studentRole": "HS thực hành giải toán/phân tích...", "keyContent": "Lời giải chi tiết từng bước." }]
+    },
+    {
+      "sectionTitle": "IV. TỔNG KẾT & DẶN DÒ",
+      "badge": "Vận dụng",
+      "items": [{ "title": "Tổng kết bài học", "teacherRole": "GV khái quát kiến thức và giao việc...", "studentRole": "HS ghi nhận nhiệm vụ...", "keyContent": "Hệ thống hóa kiến thức." }]
     }
   ],
   "slides": [
     {
-      "slideTitle": "TIÊU ĐỀ SLIDE",
-      "tag": "Thẻ",
-      "blocks": [
-        { "type": "hero", "mainText": "Nội dung chính", "subText": "Mô tả phụ" },
-        { "type": "concept_box", "title": "Lý thuyết", "content": "Nội dung...", "highlightPoints": ["Ý 1", "Ý 2"] },
-        { "type": "problem_solving", "problemText": "Bài tập...", "steps": ["Bước 1...", "Bước 2..."], "finalResult": "Đáp số..." },
-        { "type": "warning_pitfall", "title": "Lỗi sai cần tránh", "pitfalls": ["Lỗi 1", "Lỗi 2"], "remedy": "Lời khuyên..." },
-        { "type": "roadmap_summary", "title": "Tổng kết", "points": ["Ý 1", "Ý 2"] }
-      ]
+      "slideTitle": "${title.toUpperCase()}",
+      "tag": "SLIDE BÌA",
+      "blocks": [{ "type": "hero", "mainText": "${title.toUpperCase()}", "subText": "Môn: ${subject} - Lớp ${grade}" }]
+    },
+    {
+      "slideTitle": "1. LÝ THUYẾT TRỌNG TÂM",
+      "tag": "LÝ THUYẾT",
+      "blocks": [{ "type": "concept_box", "title": "Kiến thức trọng tâm", "content": "Nội dung lý thuyết chuyên sâu của ${title}.", "highlightPoints": ["Ý chính 1", "Ý chính 2"] }]
+    },
+    {
+      "slideTitle": "2. VÍ DỤ MINH HỌA & BÀI TẬP",
+      "tag": "BÀI TẬP",
+      "blocks": [{ "type": "problem_solving", "problemText": "Bài tập vận dụng thực tế.", "steps": ["Bước 1: Phân tích.", "Bước 2: Giải quyết."], "finalResult": "Đáp số chính xác." }]
+    },
+    {
+      "slideTitle": "3. LƯU Ý & CÁCH TRÁNH LỖI SAI",
+      "tag": "LƯU Ý",
+      "blocks": [{ "type": "warning_pitfall", "title": "Lỗi thường gặp", "pitfalls": ["Lỗi học sinh hay mắc phải."], "remedy": "Cách khắc phục." }]
+    },
+    {
+      "slideTitle": "4. TỔNG KẾT BÀI HỌC",
+      "tag": "TỔNG KẾT",
+      "blocks": [{ "type": "roadmap_summary", "title": "Ghi nhớ", "points": ["Nắm vững cốt lõi bài học."] }]
     }
   ]
 }`;
 
-        // Các mô hình thử nghiệm
-        const MODELS = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-1.5-flash'];
-
-        for (const model of MODELS) {
-            try {
-                const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-                const response = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: systemPrompt }] }] })
-                });
-
-                const data = await response.json();
-                if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
-                    let raw = data.candidates[0].content.parts[0].text;
-                    let clean = raw.replace(/```json/gi, '').replace(/```/gi, '').trim();
-                    lessonData = JSON.parse(clean);
-                    break;
-                }
-            } catch (e) {
-                console.warn(`Model ${model} error, testing next...`);
+        try {
+            const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeKey}`;
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ text: systemPrompt }] }] })
+            });
+            const data = await response.json();
+            if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
+                let raw = data.candidates[0].content.parts[0].text;
+                let clean = raw.replace(/```json/gi, '').replace(/```/gi, '').trim();
+                lessonData = JSON.parse(clean);
             }
+        } catch (e) {
+            console.warn("API Call skipped/failed, using Smart Dynamic Generator.");
         }
     }
 
-    // NẾU KHÔNG CÓ KEY HẶC API LỖI -> DÙNG BỘ TẠO ĐỘNG OFFLINE (ĐẢM BẢO HOẠT ĐỘNG 100%)
+    // 2. Nếu không có API key hoặc API lỗi -> Dùng bộ tạo thông minh theo đúng môn học (Không bị lặp khuôn chung chung)
     if (!lessonData) {
-        lessonData = buildOfflineData(subject, grade, title, notes);
+        lessonData = generateSmartLesson(subject, grade, title, notes);
     }
 
     currentLessonData = lessonData;
@@ -143,49 +194,80 @@ Trả về DUY NHẤT một đối tượng JSON chuẩn không bọc markdown:
 
     statusEl.innerText = 'Hoàn thành';
     document.getElementById('btn-export-pptx').classList.remove('hidden');
+    document.getElementById('btn-export-docx').classList.remove('hidden');
 }
 
-// Bộ tạo dữ liệu dự phòng chuẩn
-function buildOfflineData(subject, grade, title, notes) {
+// Bộ tạo nội dung chi tiết theo từng đặc thù môn học
+function generateSmartLesson(subject, grade, title, notes) {
+    let specificContent = `Nội dung cốt lõi của chủ đề ${title} trong chương trình ${subject} lớp ${grade}.`;
+    let sampleProblem = `Giải bài tập vận dụng định luật/công thức của ${title}.`;
+    let pitfall = `Nhầm lẫn về điều kiện áp dụng hoặc đơn vị tính trong ${subject}.`;
+
+    if (subject === "Toán học") {
+        specificContent = `Khảo sát hàm số, biến đổi đại số và áp dụng định lý toán học cho bài ${title}.`;
+        sampleProblem = `Cho biểu thức liên quan đến ${title}. Hãy tính giá trị và chứng minh đẳng thức.`;
+        pitfall = `Quên đặt điều kiện xác định hoặc tính toán sai dấu.`;
+    } else if (subject === "Vật lý") {
+        specificContent = `Phân tích bản chất hiện tượng vật lý, định luật bảo toàn và các đại lượng đặc trưng của ${title}.`;
+        sampleProblem = `Bài toán tính toán các thông số kỹ thuật và đồ thị dao động của ${title}.`;
+        pitfall = `Nhầm lẫn hệ đơn vị đo lường SI (cm sang m, g sang kg).`;
+    } else if (subject === "Hóa học") {
+        specificContent = `Nghiên cứu cấu tạo phân tử, phương trình phản ứng hóa học và tính chất của ${title}.`;
+        sampleProblem = `Tính khối lượng chất tham gia và sản phẩm dựa trên định luật bảo toàn khối lượng.`;
+        pitfall = `Cân bằng sai phương trình hóa học.`;
+    } else if (subject === "Ngữ văn") {
+        specificContent = `Phân tích giá trị nội dung, nghệ thuật và thông điệp nhân văn của tác phẩm ${title}.`;
+        sampleProblem = `Phân tích đoạn trích tiêu biểu và phát biểu cảm nghĩ sâu sắc.`;
+        pitfall = `Diễn đạt lan man, thiếu dẫn chứng cụ thể từ văn bản.`;
+    } else if (subject === "Tiếng Anh") {
+        specificContent = `Cấu trúc ngữ pháp nâng cao, quy tắc cụm từ và ngữ cảnh giao tiếp của ${title}.`;
+        sampleProblem = `Hoàn thành câu điều kiện/mệnh đề quan hệ và chia động từ chính xác.`;
+        pitfall = `Dùng sai thì (tenses) hoặc vị trí trạng từ.`;
+    }
+
+    if (notes) {
+        specificContent += ` (Lưu ý bổ sung: ${notes})`;
+    }
+
     return {
         title: title,
         subject: subject,
         grade: grade,
-        creativeApproach: `Phương pháp tiếp cận dựa trên việc giải quyết vấn đề thực tế của bài "${title}" trong môn ${subject} khối ${grade}.`,
+        creativeApproach: `Áp dụng phương pháp dạy học phát triển năng lực, gắn kết lý thuyết ${subject} với thực tiễn đời sống thông qua bài "${title}".`,
         khbd: [
             {
-                sectionTitle: "I. TÌNH HUỐNG MỞ ĐẦU & KHỞI ĐỘNG",
+                sectionTitle: "I. HOẠT ĐỘNG MỞ ĐẦU (KHỞI ĐỘNG)",
                 badge: "Khởi động",
                 items: [
                     {
-                        title: `Tình huống thực tế bài "${title}"`,
-                        teacherRole: `GV đưa ra tình huống thực tế dẫn dắt vào bài học ${title}.`,
-                        studentRole: "HS làm việc nhóm, trao đổi và phát hiện vấn đề.",
-                        keyContent: "Xác định mục tiêu bài học."
+                        title: `Tình huống thực tế dẫn dắt bài ${title}`,
+                        teacherRole: `GV đặt câu hỏi gợi mở hoặc trình chiếu hình ảnh/video thực tế liên quan đến ${title}.`,
+                        studentRole: "HS quan sát, suy nghĩ, liên hệ thực tế và phát biểu ý kiến ban đầu.",
+                        keyContent: "Tạo tâm thế hứng thú và xác định vấn đề cần giải quyết."
                     }
                 ]
             },
             {
-                sectionTitle: "II. HÌNH THÀNH KIẾN THỨC CỐT LÕI",
+                sectionTitle: "II. HÌNH THÀNH KIẾN THỨC MỚI",
                 badge: "Khám phá",
                 items: [
                     {
-                        title: `Xây dựng kiến thức bài ${title}`,
-                        teacherRole: "GV hướng dẫn học sinh tìm hiểu nguyên lý và công thức cốt lõi.",
-                        studentRole: "HS ghi chép nội dung trọng tâm.",
-                        keyContent: notes ? `Tài liệu: ${notes}` : `Công thức / Bản chất của ${title}.`
+                        title: `Xây dựng bản chất và định luật cốt lõi`,
+                        teacherRole: `GV hướng dẫn học sinh phân tích tài liệu SGK, rút ra quy luật và công thức của ${title}.`,
+                        studentRole: "HS làm việc nhóm, trao đổi thảo luận và ghi chép kiến thức trọng tâm.",
+                        keyContent: specificContent
                     }
                 ]
             },
             {
-                sectionTitle: "III. LUYỆN TẬP & MỔ XẺ LỜI GIẢI",
+                sectionTitle: "III. LUYỆN TẬP & VẬN DỤNG",
                 badge: "Luyện tập",
                 items: [
                     {
-                        title: "Giải bài tập vận dụng",
-                        teacherRole: "GV trình chiếu bài tập mẫu có số liệu thực tế và phân tích từng bước giải.",
-                        studentRole: "HS làm bài tập tự luyện và nhận xét chéo.",
-                        keyContent: "Lời giải chi tiết từng bước."
+                        title: "Giải bài tập mẫu và thảo luận nhóm",
+                        teacherRole: "GV đưa ra bài tập mẫu có số liệu/ngữ liệu thực tế và phân tích từng bước giải chi tiết.",
+                        studentRole: "HS trực tiếp giải bài tập vào vở, lên bảng trình bày và nhận xét chéo.",
+                        keyContent: sampleProblem
                     }
                 ]
             },
@@ -194,10 +276,10 @@ function buildOfflineData(subject, grade, title, notes) {
                 badge: "Vận dụng",
                 items: [
                     {
-                        title: "Bài tập mở rộng & Dặn dò về nhà",
-                        teacherRole: "GV giao nhiệm vụ vận dụng cao và tổng kết bài.",
-                        studentRole: "HS ghi nhận nhiệm vụ về nhà.",
-                        keyContent: "Phiếu bài tập nâng cao."
+                        title: "Củng cố kiến thức và giao nhiệm vụ về nhà",
+                        teacherRole: "GV hệ thống hóa lại các điểm mấu chốt của bài học và giao bài tập nâng cao.",
+                        studentRole: "HS tóm tắt bài học theo sơ đồ tư duy và ghi nhận nhiệm vụ về nhà.",
+                        keyContent: "Hoàn thiện phiếu học tập và chuẩn bị bài mới."
                     }
                 ]
             }
@@ -206,41 +288,41 @@ function buildOfflineData(subject, grade, title, notes) {
             {
                 slideTitle: title.toUpperCase(),
                 tag: "SLIDE BÌA",
-                blocks: [{ type: "hero", mainText: title.toUpperCase(), subText: `Môn: ${subject} - Khối Lớp ${grade}` }]
+                blocks: [{ type: "hero", mainText: title.toUpperCase(), subText: `Môn: ${subject} - Lớp ${grade}` }]
             },
             {
-                slideTitle: "1. LÝ THUYẾT & QUY LUẬT TRỌNG TÂM",
+                slideTitle: "1. LÝ THUYẾT TRỌNG TÂM",
                 tag: "LÝ THUYẾT",
                 blocks: [
                     {
                         type: "concept_box",
-                        title: "Khái niệm cốt lõi",
-                        content: `Nội dung cốt lõi của bài học ${title} trong chương trình ${subject} lớp ${grade}.`,
-                        highlightPoints: ["Quy luật biến đổi 1", "Điều kiện xác định 2"]
+                        title: "Kiến thức cốt lõi",
+                        content: specificContent,
+                        highlightPoints: ["Quy luật chính", "Điều kiện áp dụng"]
                     }
                 ]
             },
             {
-                slideTitle: "2. VÍ DỤ PHÂN TÍCH MẪU CỤ THỂ",
-                tag: "BÀI TẬP MẪU",
+                slideTitle: "2. VÍ DỤ MINH HỌA & BÀI TẬP",
+                tag: "BÀI TẬP",
                 blocks: [
                     {
                         type: "problem_solving",
-                        problemText: `Bài toán mẫu: Phân tích bài tập vận dụng về ${title}.`,
-                        steps: ["• Bước 1: Phân tích đề bài.", "• Bước 2: Áp dụng công thức tương ứng.", "• Bước 3: Tính toán và kiểm tra."],
-                        finalResult: "Đáp số chính xác."
+                        problemText: sampleProblem,
+                        steps: ["• Bước 1: Phân tích yêu cầu đề bài.", "• Bước 2: Thiết lập công thức/phương pháp.", "• Bước 3: Tính toán và kết luận."],
+                        finalResult: "Kết quả và đáp số chính xác."
                     }
                 ]
             },
             {
-                slideTitle: "3. CẢNH BÁO LỖI SAI PHỔ BIẾN",
-                tag: "LỖI SAI CẦN TRÁNH",
+                slideTitle: "3. LƯU Ý & CÁCH TRÁNH LỖI SAI",
+                tag: "LƯU Ý",
                 blocks: [
                     {
                         type: "warning_pitfall",
-                        title: "Những Lỗi Sai Hay Mắc",
-                        pitfalls: [`Hiểu sai bản chất khái niệm ${title}.`, "Nhầm lẫn giữa các đơn vị đo."],
-                        remedy: "💡 Chiến lược: Đọc kỹ đề bài trước khi tính toán!"
+                        title: "Các lỗi thường gặp",
+                        pitfalls: [pitfall],
+                        remedy: "💡 Lời khuyên: Đọc kỹ đề bài, kiểm tra kỹ đơn vị và điều kiện ràng buộc!"
                     }
                 ]
             },
@@ -250,8 +332,8 @@ function buildOfflineData(subject, grade, title, notes) {
                 blocks: [
                     {
                         type: "roadmap_summary",
-                        title: "Ghi Nhớ Trọng Tâm",
-                        points: [`Nắm chắc công thức bài ${title}.`, "Hoàn thành bài tập SGK."]
+                        title: "Ghi nhớ nhanh",
+                        points: [`Nắm chắc bản chất bài ${title}.`, "Hoàn thành đầy đủ bài tập vận dụng."]
                     }
                 ]
             }
@@ -259,7 +341,6 @@ function buildOfflineData(subject, grade, title, notes) {
     };
 }
 
-// Hiển thị Kế hoạch bài dạy
 function renderKHBD() {
     const container = document.getElementById('khbd-output');
     if (!container || !currentLessonData) return;
@@ -296,7 +377,6 @@ function renderKHBD() {
     `;
 }
 
-// Hiển thị Slide
 function renderSlides() {
     const container = document.getElementById('slide-preview-container');
     if (!container || !currentLessonData) return;
@@ -344,6 +424,7 @@ function renderSlides() {
                             <div class="p-3 bg-red-950/60 rounded-xl border border-red-800 text-xs space-y-1">
                                 <p class="font-bold text-red-300">${block.title || 'Lỗi sai cần tránh'}</p>
                                 ${Array.isArray(block.pitfalls) ? block.pitfalls.map(p => `<p>❌ ${p}</p>`).join('') : ''}
+                                ${block.remedy ? `<p class="text-emerald-300 italic pt-1">💡 ${block.remedy}</p>` : ''}
                             </div>
                         `;
                     }
@@ -362,7 +443,6 @@ function renderSlides() {
     `).join('') : '';
 }
 
-// Xuất file PowerPoint
 function handleExportPPTX() {
     if (!currentLessonData) return;
 
@@ -386,19 +466,19 @@ function handleExportPPTX() {
             if (Array.isArray(s.blocks)) {
                 s.blocks.forEach(block => {
                     if (block.type === 'concept_box') {
-                        slide.addShape(pptx.shapes.ROUNDED_RECTANGLE, { x: 0.6, y: currentY, w: 8.8, h: 2.0, fill: { color: "FFFFFF" }, line: { color: "CBD5E1" } });
-                        slide.addText(block.content, { x: 0.8, y: currentY + 0.1, w: 8.4, h: 1.8, fontSize: 13, color: "1E293B" });
-                        currentY += 2.2;
+                        slide.addShape(pptx.shapes.ROUNDED_RECTANGLE, { x: 0.6, y: currentY, w: 8.8, h: 1.8, fill: { color: "FFFFFF" }, line: { color: "CBD5E1" } });
+                        slide.addText(block.content || block.title, { x: 0.8, y: currentY + 0.1, w: 8.4, h: 1.6, fontSize: 12, color: "1E293B" });
+                        currentY += 2.0;
                     } else if (block.type === 'problem_solving') {
-                        slide.addShape(pptx.shapes.ROUNDED_RECTANGLE, { x: 0.6, y: currentY, w: 8.8, h: 2.2, fill: { color: "EFF6FF" }, line: { color: "3B82F6" } });
-                        slide.addText(block.problemText, { x: 0.8, y: currentY + 0.1, w: 8.4, h: 0.8, fontSize: 13, color: "1E40AF", bold: true });
-                        currentY += 2.4;
-                    } else if (block.type === 'warning_pitfall') {
-                        slide.addShape(pptx.shapes.ROUNDED_RECTANGLE, { x: 0.6, y: currentY, w: 8.8, h: 2.0, fill: { color: "FEF2F2" }, line: { color: "EF4444" } });
+                        slide.addShape(pptx.shapes.ROUNDED_RECTANGLE, { x: 0.6, y: currentY, w: 8.8, h: 2.0, fill: { color: "EFF6FF" }, line: { color: "3B82F6" } });
+                        slide.addText(block.problemText, { x: 0.8, y: currentY + 0.1, w: 8.4, h: 0.8, fontSize: 12, color: "1E40AF", bold: true });
                         currentY += 2.2;
+                    } else if (block.type === 'warning_pitfall') {
+                        slide.addShape(pptx.shapes.ROUNDED_RECTANGLE, { x: 0.6, y: currentY, w: 8.8, h: 1.8, fill: { color: "FEF2F2" }, line: { color: "EF4444" } });
+                        currentY += 2.0;
                     } else if (block.type === 'roadmap_summary') {
-                        slide.addShape(pptx.shapes.ROUNDED_RECTANGLE, { x: 0.6, y: currentY, w: 8.8, h: 2.2, fill: { color: "FFFFFF" }, line: { color: "CBD5E1" } });
-                        currentY += 2.4;
+                        slide.addShape(pptx.shapes.ROUNDED_RECTANGLE, { x: 0.6, y: currentY, w: 8.8, h: 1.8, fill: { color: "FFFFFF" }, line: { color: "CBD5E1" } });
+                        currentY += 2.0;
                     }
                 });
             }
@@ -407,4 +487,119 @@ function handleExportPPTX() {
 
     const fileName = `${currentLessonData.title.replace(/[^a-zA-Z0-9_àáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđĐ ]/g, "")}_Lesson.pptx`;
     pptx.writeFile({ fileName: fileName });
+}
+
+function handleExportDOCX() {
+    if (!currentLessonData) return;
+
+    const docChildren = [];
+
+    docChildren.push(
+        new docx.Paragraph({
+            children: [
+                new docx.TextRun({
+                    text: `KẾ HOẠCH BÀI DẠY: ${currentLessonData.title.toUpperCase()}`,
+                    bold: true,
+                    size: 32, 
+                    font: "Times New Roman"
+                })
+            ],
+            spacing: { after: 150 }
+        }),
+        new docx.Paragraph({
+            children: [
+                new docx.TextRun({
+                    text: `Môn: ${currentLessonData.subject} | Khối lớp: ${currentLessonData.grade}`,
+                    italics: true,
+                    size: 24, 
+                    font: "Times New Roman"
+                })
+            ],
+            spacing: { after: 300 }
+        })
+    );
+
+    if (currentLessonData.creativeApproach) {
+        docChildren.push(
+            new docx.Paragraph({
+                children: [
+                    new docx.TextRun({ text: "Ý TƯỞNG SƯ PHẠM: ", bold: true, size: 24, font: "Times New Roman" }),
+                    new docx.TextRun({ text: currentLessonData.creativeApproach, size: 24, font: "Times New Roman" })
+                ],
+                spacing: { after: 200 }
+            })
+        );
+    }
+
+    if (Array.isArray(currentLessonData.khbd)) {
+        currentLessonData.khbd.forEach(sec => {
+            docChildren.push(
+                new docx.Paragraph({
+                    children: [
+                        new docx.TextRun({ text: sec.sectionTitle, bold: true, size: 26, color: "047857", font: "Times New Roman" })
+                    ],
+                    spacing: { before: 200, after: 100 }
+                })
+            );
+
+            if (Array.isArray(sec.items)) {
+                sec.items.forEach(item => {
+                    docChildren.push(
+                        new docx.Paragraph({
+                            children: [new docx.TextRun({ text: `• ${item.title}`, bold: true, size: 24, font: "Times New Roman" })],
+                            spacing: { after: 60 }
+                        })
+                    );
+                    if (item.teacherRole) {
+                        docChildren.push(
+                            new docx.Paragraph({
+                                children: [
+                                    new docx.TextRun({ text: "   - Giáo viên: ", bold: true, size: 24, font: "Times New Roman" }),
+                                    new docx.TextRun({ text: item.teacherRole, size: 24, font: "Times New Roman" })
+                                ],
+                                spacing: { after: 40 }
+                            })
+                        );
+                    }
+                    if (item.studentRole) {
+                        docChildren.push(
+                            new docx.Paragraph({
+                                children: [
+                                    new docx.TextRun({ text: "   - Học sinh: ", bold: true, size: 24, font: "Times New Roman" }),
+                                    new docx.TextRun({ text: item.studentRole, size: 24, font: "Times New Roman" })
+                                ],
+                                spacing: { after: 40 }
+                            })
+                        );
+                    }
+                    if (item.keyContent) {
+                        docChildren.push(
+                            new docx.Paragraph({
+                                children: [
+                                    new docx.TextRun({ text: "   - Trọng tâm: ", bold: true, size: 24, font: "Times New Roman" }),
+                                    new docx.TextRun({ text: item.keyContent, italics: true, size: 24, font: "Times New Roman" })
+                                ],
+                                spacing: { after: 120 }
+                            })
+                        );
+                    }
+                });
+            }
+        });
+    }
+
+    const doc = new docx.Document({
+        sections: [{ properties: {}, children: docChildren }]
+    });
+
+    docx.Packer.toBlob(doc).then(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${currentLessonData.title.replace(/[^a-zA-Z0-9_àáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđĐ ]/g, "")}_KHBD.docx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
 }
